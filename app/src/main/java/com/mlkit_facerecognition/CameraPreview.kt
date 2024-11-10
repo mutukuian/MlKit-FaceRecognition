@@ -1,5 +1,6 @@
 package com.mlkit_facerecognition
 
+import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -11,9 +12,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.face.Face
-import java.util.concurrent.Executors
 
 @Composable
 fun CameraPreview(
@@ -23,15 +25,13 @@ fun CameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val previewView = remember { PreviewView(context) }
-    val executor = Executors.newSingleThreadExecutor()
+    val mainExecutor = ContextCompat.getMainExecutor(context)
 
     AndroidView(
         factory = { previewView },
         modifier = Modifier.fillMaxSize()
-    ) { previewView ->
-
+    ) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
 
@@ -41,19 +41,21 @@ fun CameraPreview(
 
             val imageAnalysis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build().apply {
-                    setAnalyzer(executor, FaceAnalyzer(object : FaceAnalyzerCallback {
-                        override fun processFace(faces: List<Face>) {
-                            onFacesDetected(faces)
-                        }
+                .build()
 
-                        override fun errorFace(error: String) {
-                            onError(error)
-                        }
-                    }))
+            val analyzer = FaceAnalyzer(object : FaceAnalyzerCallback {
+                override fun processFace(faces: List<Face>) {
+                    onFacesDetected(faces)
                 }
 
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                override fun errorFace(error: String) {
+                    onError(error)
+                }
+            })
+
+            imageAnalysis.setAnalyzer(mainExecutor,analyzer)
+
+            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
             try {
                 cameraProvider.unbindAll()
@@ -63,7 +65,8 @@ fun CameraPreview(
             } catch (e: Exception) {
                 onError("Failed to bind camera use cases: ${e.message}")
             }
-        }, executor)
+        }, mainExecutor)
     }
 }
+
 

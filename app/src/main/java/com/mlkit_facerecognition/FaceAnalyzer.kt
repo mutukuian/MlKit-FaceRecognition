@@ -13,7 +13,7 @@ import com.google.mlkit.vision.face.FaceDetectorOptions.CONTOUR_MODE_ALL
 import com.google.mlkit.vision.face.FaceDetectorOptions.LANDMARK_MODE_NONE
 import com.google.mlkit.vision.face.FaceDetectorOptions.PERFORMANCE_MODE_FAST
 
-class FaceAnalyzer(private val callBack : FaceAnalyzerCallback) : ImageAnalysis.Analyzer {
+class FaceAnalyzer(private val callBack: FaceAnalyzerCallback) : ImageAnalysis.Analyzer {
 
     private val realTimeOpts = FaceDetectorOptions.Builder()
         .setContourMode(CONTOUR_MODE_ALL)
@@ -28,25 +28,25 @@ class FaceAnalyzer(private val callBack : FaceAnalyzerCallback) : ImageAnalysis.
 
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(image: ImageProxy) {
-        val mediaImage = image.image
-        mediaImage?.let {
-            val inputImage =
-                InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
-            detector.process(inputImage)
-                .addOnSuccessListener { faces ->
-                    callBack.processFace(faces)
-                    image.close()
-                }
-                .addOnFailureListener {
-                    callBack.errorFace(it.message.orEmpty())
-                    image.close()
-                }
-                .addOnCompleteListener {
-                    image.close()
-                }
+        val mediaImage = image.image ?: run {
+            image.close()
+            return
         }
+
+        val inputImage = InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
+        detector.process(inputImage)
+            .addOnSuccessListener { faces ->
+                callBack.processFace(faces)
+            }
+            .addOnFailureListener {
+                callBack.errorFace(it.message.orEmpty())
+            }
+            .addOnCompleteListener {
+                image.close()
+            }
     }
 }
+
 
 interface FaceAnalyzerCallback {
     fun processFace(faces: List<Face>)
